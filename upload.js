@@ -1,8 +1,9 @@
 import axios from 'axios'
 import qs from 'qs'
 import { auth } from 'poros/utils'
-
 const { getToken } = auth
+
+const Message = require('poros/ui/lib/message').default
 
 /**
  * 文件流下载
@@ -11,8 +12,7 @@ const { getToken } = auth
  * @param {string} 请求方法(默认为get请求)
  * @param {string} paramsFormat 请求参数格式(默认为x-www-form-urlencoded格式)
  */
-export function downloadBufferFile (url, data, method = 'GET', paramsFormat = 'x-www-form-urlencoded') {
-  console.log(url, data, method, paramsFormat)
+export function downloadBufferFile (name, url, data, method = 'GET', paramsFormat = 'x-www-form-urlencoded') {
   if (method === 'GET') {
     return axios({
       url,
@@ -21,7 +21,7 @@ export function downloadBufferFile (url, data, method = 'GET', paramsFormat = 'x
       params: data,
       responseType: 'blob' // 必须是arraybuffer类型
     }).then(response => {
-      handleDownloadBufferFile(response, data.name)
+      handleDownloadBufferFile(response, name)
     })
   } else {
     if (paramsFormat === 'x-www-form-urlencoded') {
@@ -34,7 +34,7 @@ export function downloadBufferFile (url, data, method = 'GET', paramsFormat = 'x
         responseType: 'blob' // 表明返回服务器返回的数据类型
       }).then(response => {
         setTimeout(() => {
-          handleDownloadBufferFile(response, data.name)
+          handleDownloadBufferFile(response, name)
         }, 0)
       })
     }
@@ -49,7 +49,7 @@ export function downloadBufferFile (url, data, method = 'GET', paramsFormat = 'x
         responseType: 'blob' // 必须是arraybuffer类型
       }).then(response => {
         setTimeout(() => {
-          handleDownloadBufferFile(response)
+          handleDownloadBufferFile(response, name)
         }, 0)
       })
     }
@@ -62,9 +62,7 @@ function handleDownloadBufferFile (response, data) {
     // 处理load事件。该事件在读取操作完成时触发
     reader.onload = e => {
       const res = JSON.parse(e.target.result)
-      this.$message.error({
-        content: res.msg
-      }) // 异常信息抛出
+      Message.error(res.msg) // 异常信息抛出
     }
     reader.readAsText(response.data)
   } else {
@@ -93,10 +91,55 @@ function handleDownloadBufferFile (response, data) {
         let a = document.createElement('a')
         document.body.appendChild(a)
         a.href = url
-        a.download = data || '平台商品列表' // 命名下载名称
+        a.download = data || 'excel下载' // 命名下载名称
         a.click() // 点击触发下载
         window.URL.revokeObjectURL(url) // 下载完成进行释放
       }
     }
   }
+}
+
+/**
+ * 文件上传
+ * @param {string} url 请求路径
+ * @param {any} data 请求参数
+ */
+export function uploadFile (url, data = {}) {
+  let formData = setFormData(data)
+  return new Promise((resolve, reject) => {
+    axios({
+      method: 'post',
+      url: url,
+      headers: {
+        'Authorization': getToken(),
+        'Content-Type': 'multipart/form-data'
+      },
+      data: formData
+    }).then(
+      response => {
+        resolve(response.data)
+      },
+      err => {
+        reject(err)
+      }
+    )
+  })
+}
+
+//* 针对统一的formData入参方式
+export function setFormData (data = {}) {
+  let formData = new FormData()
+  for (let key in data) {
+    if (Array.isArray(data[key])) {
+      if (data[key].length) {
+        data[key].forEach(item => {
+          formData.append(key, item)
+        })
+      }
+    } else if (data.hasOwnProperty(key)) {
+      let ele = data[key]
+      formData.append(key, ele)
+    }
+  }
+  return formData
 }
